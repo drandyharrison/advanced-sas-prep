@@ -209,6 +209,133 @@ PROC SQL;
 			(salary/SUM(salary)) AS Percent FORMAT=PERCENT8.2
 	FROM sasuser.payrollmaster
 	WHERE jobcode CONTAINS "NA";
+	
+/* A HAVING clause which contains a noncorrelated subquery that returns a single value */
+PROC SQL;
+	title "Using a single-valued noncorrelated subquery";
+	SELECT	jobcode LABEL="Job code",
+			AVG(salary) as AvgSalary FORMAT=DOLLAR11.2
+	FROM sasuser.payrollmaster
+	GROUP BY jobcode
+	/* subset to those jobcode groups that have an average salary greater than the company's average salary */
+	HAVING AVG(salary) > (SELECT AVG(salary) FROM sasuser.payrollmaster);
+
+/* list the name and addresses of all the employees with birthdays in February */
+PROC SQL;
+	title "Using a multi-value noncorrelated subquery";
+	title2 "[list the name and addresses of all the employees with birthdays in February]";
+	SELECT	empid LABEL="Employee ID",
+			PROPCASE(lastname) LABEL="Surname",
+			PROPCASE(firstname) LABEL="Christian name",
+			PROPCASE(city) LABEL="City",
+			state
+	FROM sasuser.staffmaster
+	WHERE empid IN
+		(SELECT empid
+		 FROM sasuser.payrollmaster
+		 WHERE MONTH(dateofbirth) = 2)
+	ORDER BY lastname;
+
+title2;
+/* Identify any flight attendants at level 1 or 2 who are older than any of the flights attendants at level 3 */
+PROC SQL;
+	title "Using the ANY operator";
+	SELECT	empid LABEL="Employee ID",
+			jobcode LABEL="Job code",
+			dateofbirth LABEL="DoB"
+	FROM sasuser.payrollmaster
+	WHERE	jobcode in ('FA1', 'FA2')		/* flight attendants level 1 or 2 */
+			AND dateofbirth < ANY
+				(SELECT dateofbirth
+				 FROM sasuser.payrollmaster
+				 WHERE jobcode in ('FA3'))	/* flight attendant level 3 */
+	ORDER BY jobcode, empid;
+	
+/* More efficient version using the MAX function */
+PROC SQL;
+	title "More efficient version using the MAX function";
+	SELECT	empid LABEL="Employee ID",
+			jobcode LABEL="Job code",
+			dateofbirth LABEL="DoB"
+	FROM sasuser.payrollmaster
+	WHERE	jobcode in ('FA1', 'FA2')		/* flight attendants level 1 or 2 */
+			AND dateofbirth < 
+				(SELECT MAX(dateofbirth)
+				 FROM sasuser.payrollmaster
+				 WHERE jobcode in ('FA3'))	/* flight attendant level 3 */
+	ORDER BY jobcode, empid;
+	
+/* Identify any flight attendants at level 1 or 2 who are older than *all* of the flights attendants at level 3 */
+PROC SQL;
+	title "Using the ALL operator";
+	SELECT	empid LABEL="Employee ID",
+			jobcode LABEL="Job code",
+			dateofbirth LABEL="DoB"
+	FROM sasuser.payrollmaster
+	WHERE	jobcode in ('FA1', 'FA2')		/* flight attendants level 1 or 2 */
+			AND dateofbirth < ALL
+				(SELECT dateofbirth
+				 FROM sasuser.payrollmaster
+				 WHERE jobcode in ('FA3'))	/* flight attendant level 3 */
+	ORDER BY jobcode, empid;
+	
+/* More efficient version using the MIN function */
+PROC SQL;
+	title "More efficient version using the MIN function";
+	SELECT	empid LABEL="Employee ID",
+			jobcode LABEL="Job code",
+			dateofbirth LABEL="DoB"
+	FROM sasuser.payrollmaster
+	WHERE	jobcode in ('FA1', 'FA2')		/* flight attendants level 1 or 2 */
+			AND dateofbirth < 
+				(SELECT MIN(dateofbirth)
+				 FROM sasuser.payrollmaster
+				 WHERE jobcode in ('FA3'))	/* flight attendant level 3 */
+	ORDER BY jobcode, empid;
+	
+/* Correlated subqueries */
+PROC SQL;
+	title "Correlated subqueries - navigators who are also managers";
+	SELECT	PROPCASE(lastname) LABEL="Surname",
+			PROPCASE(firstname) LABEL="Christian name"
+	FROM sasuser.staffmaster
+	WHERE 'NA' =
+		(SELECT jobcategory
+		 FROM sasuser.supervisors
+		 WHERE staffmaster.empid = supervisors.empid);
+		 
+/* Identify flight attendants not scheduled to work */
+/* Set of flight attendants - set of employees scheduled to work */
+/* Using NOT EXISTS with a correlated query */
+PROC SQL;
+	title "Using NOT EXISTS with a correlated query";
+	title2 "[Identify flight attendants not scheduled to work]";
+	SELECT	PROPCASE(lastname) LABEL="Surname",
+			PROPCASE(firstname) LABEL="Christian name"
+	FROM sasuser.flightattendants
+	WHERE NOT EXISTS
+			(SELECT *
+			 FROM sasuser.flightschedule
+			 WHERE flightschedule.empid = flightattendants.empid);
+title2;
+
+/* Validating query syntax */
+PROC SQL NOEXEC;
+	SELECT	empid,
+			jobcode,
+			salary
+	FROM sasuser.payrollmaster
+	WHERE jobcode CONTAINS 'NA'
+	ORDER BY salary;
+	
+PROC SQL;
+	VALIDATE
+	SELECT	empid,
+			jobcode,
+			salary
+	FROM sasuser.payrollmaster
+	WHERE jobcode CONTAINS 'NA'
+	ORDER BY salary;
 
 /* clear titles and footnotes */
 title;
