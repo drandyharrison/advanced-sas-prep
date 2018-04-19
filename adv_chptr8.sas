@@ -106,4 +106,26 @@ PROC SQL OUTOBS=10;
 			destination
 	FROM	sasuser.internationalflights
 	WHERE	boarded > 100;
+
+/* SAS dictionaries */
+PROC SQL;
+	/* what does the dictionary tables look like */
+	DESCRIBE TABLE Dictionary.Tables;
+	/* what are the tables in the sasuer library */
+	title "Dictionary.Tables for sasuser library";
+	SELECT	PROPCASE(memname) FORMAT=$20. LABEL="Table name",	/* name of the table */
+			nobs LABEL="No. rows",								/* number of observations/records/rows */
+			nvar LABEL="No. columns",							/* number of variables/fields/columns */
+			crdate												/* creation date */
+	FROM	Dictionary.tables
+	WHERE	libname = "SASUSER";								/* sasuser library, must be uppercase */
 	
+PROC SQL;
+	/* what does the dictionary columns look like */
+	DESCRIBE TABLE Dictionary.Columns;
+	/* which tables in sasuser have a column named EmpID */
+	title "Tables in sasuser library with a column named EmpID";
+	SELECT	PROPCASE(memname) LABEL="Table name"
+	FROM	Dictionary.Columns
+	WHERE	libname="SASUSER" AND			/* sasuser library */
+			name="EmpID";					/* a column named EmpID (case must match) */
