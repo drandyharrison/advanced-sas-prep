@@ -144,3 +144,71 @@ OPTIONS MPRINT MLOGIC;
 
 /* one-way table */
 %counts(dsn=sasuser.all, cols=paid)
+
+/* using an iterative %DO loop */
+DATA _NULL_;
+	SET sasuser.schedule END=no_more;
+	CALL SYMPUT('teach' || LEFT(_n_), (TRIM(teacher)));		/* create a macro variable for each observation */
+	IF no_more THEN CALL SYMPUT('count', _n_);				/* a macro variable to hold number of observations */
+RUN;
+
+OPTIONS NOMLOGIC;
+%MACRO putloop;
+	%LOCAL i;							/* define loop variable */
+	%DO i = 1 %TO &count;				/* loop through all the records */
+		%PUT teach&i is &&teach&i;		/* output the value of each of the teach[i] macro variables */
+	%END;
+%MEND putloop;
+
+%putloop
+
+/* use a %DO loop to create a series of steps in a DATA step */
+%MACRO hex(start=1, stop=10, incr=1);
+	%LOCAL i;
+	DATA _NULL_;
+		%DO i = &start %TO &stop %BY &incr;
+			value = &i;
+			PUT "Hexadecimal form of &i is " value HEX6.;
+		%END;
+	RUN;
+%MEND hex;
+
+OPTIONS MPRINT MLOGIC SYMBOLGEN;
+%hex(start=20, stop=30, incr=2)
+
+/* create a macro loop to create an entire DATA step */
+/* read read a series of external files - rawYYYY.dat - for course offerings over a series of years */
+%MACRO readraw(first=1999,last=2005);
+	%LOCAL year;
+	%DO year=&first %TO &last;
+		DATA year&year;
+			INFILE "raw&year..dat";
+			INPUT	course_code $4.
+					location $15.
+					begin_date DATE9.
+					teacher $25.;
+		RUN;
+		
+		PROC PRINT DATA=year&year;
+			title "Scheduled classes for &year";
+			FORMAT begin_date DATE9.;
+		RUN;
+	%END;
+%MEND readraw;
+
+/* not called as the raw files don't exist */
+/* %readraw(first=2000, last=2002) */
+
+/* example of the use of %SYSEVALF */
+%MACRO figureit(a,b);
+	%LET y = %SYSEVALF(&a+&b);
+	%PUT The result with SYSEVALF is: &y;
+	%PUT BOOLEAN conversion:          %SYSEVALF(&a+&b, boolean);
+	%PUT CEIL conversion:             %SYSEVALF(&a+&b, ceil);
+	%PUT FLOOR conversion:            %SYSEVALF(&a+&b, floor);
+	%PUT INTEGER conversion:          %SYSEVALF(&a+&b, integer);
+%MEND figureit;
+
+OPTIONS NOMLOGIC NOSYMBOLGEN;
+%figureit(100, 1.59);
+	
