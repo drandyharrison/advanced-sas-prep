@@ -201,3 +201,97 @@ RUN;
 PROC PRINT DATA=teachers (OBS=20);
 	VAR student_name course_number teacher;
 	title "teacher for each registered student";
+	
+/* creating a macro variable in a PROC SQL step */
+PROC SQL NOPRINT;									/* the NOPRINT option suppresses output from the PROC SQL step */
+	SELECT SUM(fee) FORMAT=DOLLAR10. INTO :totalfee	/* totalfee contains the total of all course fees */
+	FROM sasuser.all;
+QUIT;
+/* the INTO clause does not trim leading or trailing blanks, %LET does */
+%LET totalfee = &totalfee;
+
+PROC MEANS DATA=sasuser.all SUM MAXDEC=0;
+	CLASS course_title;
+	VAR fee;
+	title "Grand total for all courses is &totalfee";
+RUN;
+
+/* creating macro variables for each row of ouput */
+PROC SQL;
+	SELECT		course_code,
+				location,
+				begin_date FORMAT=DDMMYY10.
+	INTO		:crsid1-:crsid3,			/* first three rows of course_code output */
+				:place1-:place3,			/* first three rows of location output */
+				:date1-:date3			/* first three rows of date output */
+	FROM		sasuser.schedule
+	WHERE		YEAR(begin_date) = 2002
+	ORDER BY	begin_date;
+QUIT;
+
+%PUT _USER_;
+
+/* the same query but for all rows output */
+PROC SQL NOPRINT;
+	SELECT	COUNT(*)
+	INTO	:num_rows					/* the number of rows that will be output */
+	FROM	sasuser.schedule
+	WHERE	YEAR(begin_date) = 2002;
+	%LET num_rows = &num_rows;
+	%PUT There are &num_rows courses in 2002;
+	SELECT		course_code,
+				location,
+				begin_date FORMAT=DDMMYY10.
+	INTO		:crsid1-:crsid&num_rows,		/* all rows of course_code output */
+				:place1-:place&num_rows,		/* all rows of location output */
+				:date1-:date&num_rows			/* all rows of date output */
+	FROM		sasuser.schedule
+	WHERE		YEAR(begin_date) = 2002
+	ORDER BY	begin_date;
+	%PUT _USER_;
+QUIT;
+
+/* create one macro variable that creates a delimited list of all column values */
+PROC SQL NOPRINT;
+	SELECT	DISTINCT location
+	INTO	:sites SEPARATED BY '|'	/* a pipe-separated list of the distinct sites */
+	FROM	sasuser.schedule;
+	%PUT Site list: &sites;
+QUIT;
+PROC MEANS DATA=sasuser.all SUM MAXDEC=0;
+	VAR fee;
+	title "Total revenue from course sites: &sites";	/* use list of sites in a title */
+RUN;
+
+/* using macro variables with PROC SQL views */
+PROC SQL;
+	CREATE VIEW subcrsid AS
+		SELECT	student_name, student_company, paid
+		FROM	sasuser.all
+		/* SYMGET means the macro variable value is resolved each time the view is accessed */
+		WHERE	course_code = SYMGET("crsid");
+QUIT;
+
+%LET crsid=C003;
+PROC PRINT DATA=subcrsid NOOBS;
+	title "Status of students on course code &crsid";
+RUN;
+
+%LET crsid=C004;
+PROC PRINT DATA=subcrsid NOOBS;
+	title "Status of students on course code &crsid";
+RUN;
+
+/* comparing a macro variable to a numeric field */
+PROC SQL;
+	CREATE VIEW subcnum AS
+		SELECT	student_name, student_company, paid
+		FROM	sasuser.all
+		/* INPUT converts the character value of the macro variable to a numeric value */
+		WHERE	course_number = INPUT(SYMGET("crsnum"), 2.);
+QUIT;
+
+%LET crsnum = 4;
+PROC PRINT DATA=subcnum NOOBS;
+	title "Status of students in course number &crsnum";
+RUN;
