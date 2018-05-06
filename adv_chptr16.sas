@@ -112,3 +112,87 @@ PROC PRINT DATA=wndchll1 LABEL NOOBS;
 	title "Wind chill (reading in lookup)";
 	VAR flight wspeed temp WindChill_F temp_c WindChill_C;
 RUN;
+
+/* Hash objects */
+/* calculating the difference between actual contribution (by employee) and goal contribution */
+/* a hash object is created to store quarterly employee contribution goals to a retirement fund */
+/* the goal amount is retrieved from the hash object */
+DATA difference (DROP=goalamount);
+	LENGTH goalamount 8;
+	IF _N_ = 1 THEN DO;						/* create hash object before reading first observation */
+		DECLARE hash goal();				/* declare and initialise hash object goal in one step */
+		/* define keys and data */
+		goal.definekey("qtrnum");			/* define qtrnum as a key variable */
+		goal.definedata("goalamount");		/* define goalamount as the corresponding data variable */
+		goal.definedone();					/* definitions are complete */
+		/* the call to missing causes qtrnum to be declared as character and numeric */
+		*CALL MISSING(qtrnum, goalamount);	/* assign missing values to the variables, to avoid unintialised notes in log */
+		/* load key-value pairs */
+		goal.add(key:'qtr1', data:10);
+		goal.add(key:'qtr2', data:15);
+		goal.add(key:'qtr3', data:5);
+		goal.add(key:'qtr4', data:15);
+	END;
+	SET sasuser.contrib;					/* quarterly contributions for each employee */
+	goal.find();							/* returns a value to indicate whether key value is in hash object */
+											/* if the key is in the find method sets the data variable accordingly */
+	diff = amount - goalamount;				/* calculate the difference */
+	LABEL	amount="Actual contribution"
+			diff="Difference from goal";
+RUN;
+
+PROC PRINT DATA=difference NOOBS LABEL;
+	title "Lookup of difference between actual and goal retirement fund contributions";
+	title2 "(using a hash object for the lookup)";
+RUN;
+
+/* creating a hash object from a SAS data set */
+DATA report;
+	/* non-executing SET statement - IF 0 means it never executes */
+	/* but the SET statement is compiled and the variables Code, City and Name are created in the PDV */
+	IF 0 THEN SET sasuser.acities (KEEP=code city name);
+	IF _N_ = 1 THEN DO;						/* create hash object before reading first observation */
+		/* missing is not required with this approach */
+		/* create and populate hash object */
+		DECLARE hash airports(dataset: "sasuser.acities");	/* creates the hash object and populates it with acities */
+		airports.definekey("Code");
+		airports.definedata("City", "Name");				/* associate two data values with each key value */
+		airports.definedone();
+	END;
+	SET sasuser.revenue;
+	/* for the origin code, retrieve the city and name */
+	rc = airports.find(key:origin);
+	IF rc = 0 THEN DO;
+		/* successfully match key */
+		OriginCity = City;
+		OriginAirport = Name;
+	END;
+	ELSE DO;
+		/* failed to match key, set values to '-' to avoid errors */
+		OriginCity = '-';
+		OriginAirport = '-';
+	END;
+	/* for the destination code, retrieve the city and name */
+	rc = airports.find(key:dest);
+	IF rc = 0 THEN DO;
+		/* successfully match key */
+		DestCity = City;
+		DestAirport = Name;
+	END;
+	ELSE DO;
+		/* failed to match key, set values to '-' to avoid errors */
+		DestCity = '-';
+		DestAirport = '-';
+	END;
+	LABEL	origin="Origin (Code)"
+			OriginCity="Origin (City)"
+			OriginAirport="Origin (Airport)"
+			dest="Destination (Code)"
+			DestCity="Destination (City)"
+			DestAirport="Destination (Airport)"
+RUN;
+
+title "Report showing revenue, expenses, profit and airport information";
+PROC PRINT DATA=report LABEL NOOBS;
+	VAR date flightid origin origincity originairport dest destcity destairport;
+RUN;
