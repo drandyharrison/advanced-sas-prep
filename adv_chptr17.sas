@@ -166,24 +166,28 @@ RUN;
 
 /* create a data set from a format, to append an existing format */
 /* export the $airport format to a data set */
-PROC FORMAT lib=library CNTLOUT=fmtdata;	/* exporrt the format catalog to a new data set: fmtdata */
+PROC FORMAT lib=library CNTLOUT=fmtdata;	/* export the format catalog to a new data set: fmtdata */
 	SELECT $airport;						/* only export data for the format $airport */
 RUN;
 title "a format exported to a data set";
 PROC PRINT DATA=fmtdata (OBS=5) NOOBS;
 	VAR fmtname start end label min max default length fuzz;
 RUN;
-/* insert additional rows into the data set */
+/* insert additional rows into the data set, using PROC SQL */
 PROC SQL;
 	INSERT INTO fmtdata (fmtname, start, end, label)
-		VALUES ('AIRPORT', 'YYC', 'YYC', 'Calgary, AB')
-		VALUES ('AIRPORT', 'YYZ', 'YYZ', 'Toronto, ON')
-		VALUES ('AIRPORT', 'YQB', 'YQB', 'Quebec, QC')
-		VALUES ('AIRPORT', 'YUL', 'YUL', 'Montreal, QC');
+		VALUES ('$AIRPORT', 'YYC', 'YYC', 'Calgary, AB')	
+		VALUES ('$AIRPORT', 'YYZ', 'YYZ', 'Toronto, ON')
+		VALUES ('$AIRPORT', 'YQB', 'YQB', 'Quebec, QC')
+		VALUES ('$AIRPORT', 'YUL', 'YUL', 'Montreal, QC');
+		/* when adding the format name, */
+		/* prefix with $ to avoid an error: this range is repeated, or values overlap: .-.. */
+		/* even though no prefix in data set */
+		/* rows prefixed with $ are added those without aren't, if all aren't get the error */
 QUIT;
 title "check rows have been added";
-PROC PRINT DATA=fmtdata NOOBS;
-	VAR fmtname start end label min max default length fuzz;
+PROC PRINT DATA=fmtdata;
+	VAR fmtname start end label;
 RUN;
 /* create a format from the revised SAS data set */
 PROC FORMAT LIB=library CNTLIN=fmtdata;
