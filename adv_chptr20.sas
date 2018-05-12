@@ -1,5 +1,5 @@
 /* Advanced programming for SAS 9 */
-/* Chapter 19: Introduction to efficient SAS programming */
+/* Chapter 20: Controlling memory usage */
 
 /* define footnote for all plots using automatic macro variables */
 %LET foot2_arg = color=blue italic;
