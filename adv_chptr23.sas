@@ -39,13 +39,67 @@ DATA orders (DROP=CustomerName Segment Country ProductName);
 			Profit;
 	FORMAT OrderDate ShipDate DATE11.;
 	IF Segment = "Consumer" AND Country = "United States";
+	year = YEAR(OrderDate);
 RUN;
 
-title "Raw order data";
-PROC PRINT DATA=orders NOOBS;
-	VAR	OrderID OrderDate CustomerID  
+title "Raw order data (sample)";
+PROC PRINT DATA=orders (OBS=25) NOOBS;
+	VAR	OrderID OrderDate Year CustomerID  
 		City State ZipCode ProductID  
 		Sales Quantity Discount Profit;
 RUN;
 
-/* Creating a summary report the includes the number of 
+/* Creating a summary report the includes the number of orders for each quarter */
+/* Define format for quarters */
+PROC FORMAT;
+	VALUE qtrfmt
+		'01JAN2014'd - '31MAR2014'd = '14Q1'
+		'01APR2014'd - '30JUN2014'd = '14Q2'
+		'01JUL2014'd - '30SEP2014'd = '14Q3'
+		'01OCT2014'd - '31DEC2014'd = '14Q4'
+		'01JAN2015'd - '31MAR2015'd = '15Q1'
+		'01APR2015'd - '30JUN2015'd = '15Q2'
+		'01JUL2015'd - '30SEP2015'd = '15Q3'
+		'01OCT2015'd - '31DEC2015'd = '15Q4'
+		'01JAN2016'd - '31MAR2016'd = '16Q1'
+		'01APR2016'd - '30JUN2016'd = '16Q2'
+		'01JUL2016'd - '30SEP2016'd = '16Q3'
+		'01OCT2016'd - '31DEC2016'd = '16Q4'
+		'01JAN2017'd - '31MAR2017'd = '17Q1'
+		'01APR2017'd - '30JUN2017'd = '17Q2'
+		'01JUL2017'd - '30SEP2017'd = '17Q3'
+		'01OCT2017'd - '31DEC2017'd = '17Q4'
+		OTHER = "-";
+RUN;
+
+PROC SORT DATA=orders;
+	BY OrderDate;
+RUN;
+
+DATA quarters (KEEP=count OrderDate RENAME=(OrderDate=Quarter));
+	SET orders;
+	FORMAT OrderDate qtrfmt.;
+	/* GROUPFORMAT means FIRST and LAST are created based on the formated values not the internal ones */
+	BY OrderDate GROUPFORMAT;
+	IF FIRST.OrderDate THEN count = 0;
+	Count + 1;
+	IF LAST.OrderDate;
+RUN;
+
+title "Number of orders by Quarter (with GROUPFORMAT)";
+PROC PRINT DATA=quarters NOOBS;
+RUN;
+
+/* now without GROUPFORMAT */
+DATA quarters2 (KEEP=count OrderDate RENAME=(OrderDate=Quarter));
+	SET orders;
+	FORMAT OrderDate qtrfmt.;
+	BY OrderDate;
+	IF FIRST.OrderDate THEN count = 0;
+	Count + 1;
+	IF LAST.OrderDate;
+RUN;
+
+title "Number of orders by Quarter (without GROUPFORMAT)";
+PROC PRINT DATA=quarters2 NOOBS;
+RUN;
